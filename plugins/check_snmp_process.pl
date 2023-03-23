@@ -23,8 +23,11 @@ my $file_history                  = 200;                       # number of data 
 my $delta_of_time_to_make_average = 300;                       # 5minutes by default
 
 # Icinga specific
-my $TIMEOUT = 15;
-my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
+use lib '/usr/lib/icinga2/custom_plugins';
+use lib "/usr/local/nagios/libexec";
+use utils qw(%ERRORS $TIMEOUT);
+#my $TIMEOUT = 15;
+#my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
 
 # SNMP Datas
 my $process_table   = '1.3.6.1.2.1.25.4.2.1';
@@ -57,7 +60,8 @@ my $o_inverse   = undef;                                       # checks max inst
 my $o_get_all   = undef;                                       # get all tables at once
 my $o_param     = undef;                                       # Add process parameters for selection
 my $o_perf      = undef;                                       # Add performance output
-my $o_timeout   = 5;                                           # Default 5s Timeout
+my $o_timeout   = 10;                                          # Default 10s Timeout
+my $o_retries   = 10;                                          # 10 times retry
 
 # SNMP V3 specific
 my $o_login     = undef;                                       # snmp v3 login
@@ -228,7 +232,7 @@ Notes on warning and critical :
   Be carefull with network filters. Range 484 - 65535, default are
   usually 1472,1452,1460 or 1440.  
 -t, --timeout=INTEGER
-   timeout for SNMP in seconds (Default: 5)
+   timeout for SNMP in seconds (Default: 10)
 -V, --version
    prints version number
 Note :   
@@ -336,7 +340,7 @@ sub check_options {
         print_usage();
         exit $ERRORS{"UNKNOWN"};
     }
-    if (!defined($o_timeout)) { $o_timeout = 5; }
+    #if (!defined($o_timeout)) { $o_timeout = 5; }
 
     # Check compulsory attributes
     if (!defined($o_descr) || !defined($o_host)) { print_usage(); exit $ERRORS{"UNKNOWN"} }
@@ -443,17 +447,6 @@ sub check_options {
 
 check_options();
 
-# Check timeout if snmp screws up
-if (defined($o_timeout)) {
-    verb("Alarm in $o_timeout seconds");
-    alarm($o_timeout);
-}
-
-$SIG{'ALRM'} = sub {
-    print "No answer from host $o_host:$o_port\n";
-    exit $ERRORS{"UNKNOWN"};
-};
-
 # Connect to host
 my ($session, $error);
 if (defined($o_login) && defined($o_passwd)) {
@@ -469,7 +462,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -username     => $o_login,
             -authpassword => $o_passwd,
             -authprotocol => $o_authproto,
-            -timeout      => $o_timeout
+            -timeout      => $o_timeout,
+	    -retries      => $o_retries
         );
     } else {
         verb("SNMPv3 AuthPriv login : $o_login, $o_authproto, $o_privproto");
@@ -483,7 +477,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -authprotocol => $o_authproto,
             -privpassword => $o_privpass,
             -privprotocol => $o_privproto,
-            -timeout      => $o_timeout
+            -timeout      => $o_timeout,
+	    -retries      => $o_retries
         );
     }
 } else {
@@ -496,7 +491,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -community => $o_community,
             -port      => $o_port,
             -domain    => $o_domain,
-            -timeout   => $o_timeout
+            -timeout   => $o_timeout,
+	    -retries   => $o_retries
         );
     } else {
 
@@ -506,7 +502,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -community => $o_community,
             -port      => $o_port,
             -domain    => $o_domain,
-            -timeout   => $o_timeout
+            -timeout   => $o_timeout,
+            -retries   => $o_retries
         );
     }
 }
