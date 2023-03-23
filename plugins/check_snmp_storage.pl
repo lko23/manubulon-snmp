@@ -16,7 +16,10 @@ use Net::SNMP;
 use Getopt::Long;
 
 # Icinga specific
-my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
+use lib '/usr/lib/icinga2/custom_plugins';
+use lib "/usr/local/nagios/libexec";
+use utils qw(%ERRORS $TIMEOUT);
+#my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
 
 # SNMP Datas
 
@@ -82,7 +85,8 @@ my $o_sum         = undef;                       # add all storage before testin
 my $o_index       = undef;                       # Parse index instead of description
 my $o_negate      = undef;                       # Negate the regexp if set
 my $o_okifempty   = undef;                       # Consider OK if no disks found
-my $o_timeout     = 5;                           # Default 5s Timeout
+my $o_timeout     = 10;                          # Default 10s Timeout
+my $o_retries     = 10;                          # 10 times retry 
 my $o_perf        = undef;                       # Output performance data
 my $o_short       = undef;                       # Short output parameters
 my @o_shortL      = undef;                       # output type,where,cut
@@ -226,7 +230,7 @@ warn if %used > warn and critical if %used > crit
   Be carefull with network filters. Range 484 - 65535, default are
   usually 1472,1452,1460 or 1440.
 -t, --timeout=INTEGER
-   timeout for SNMP in seconds (Default: 5)
+   timeout for SNMP in seconds (Default: 10)
 -V, --version
    prints version number
 Note :
@@ -432,17 +436,6 @@ sub check_options {
 
 check_options();
 
-# Check timeout if snmp screws up
-if (defined($o_timeout)) {
-    verb("Alarm in $o_timeout seconds");
-    alarm($o_timeout);
-}
-
-$SIG{'ALRM'} = sub {
-    print "No answer from host $o_host:$o_port\n";
-    exit $ERRORS{"UNKNOWN"};
-};
-
 # Connect to host
 my ($session, $error);
 if (defined($o_login) && defined($o_passwd)) {
@@ -458,7 +451,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -authpassword => $o_passwd,
             -authprotocol => $o_authproto,
             -port         => $o_port,
-            -retries      => 10,
+            -retries      => $o_retries,
             -timeout      => $o_timeout,
             -domain       => $o_domain
         );
@@ -473,7 +466,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -privpassword => $o_privpass,
             -privprotocol => $o_privproto,
             -port         => $o_port,
-            -retries      => 10,
+            -retries      => $o_retries,
             -timeout      => $o_timeout,
             -domain       => $o_domain
         );
@@ -488,7 +481,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -version   => 2,
             -community => $o_community,
             -port      => $o_port,
-            -retries   => 10,
+            -retries   => $o_retries,
             -timeout   => $o_timeout,
             -domain    => $o_domain
         );
@@ -500,7 +493,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -hostname  => $o_host,
             -community => $o_community,
             -port      => $o_port,
-            -retries   => 10,
+            -retries   => $o_retries,
             -timeout   => $o_timeout,
             -domain    => $o_domain
         );
