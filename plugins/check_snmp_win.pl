@@ -17,7 +17,10 @@ use Net::SNMP;
 use Getopt::Long;
 
 # Icinga specific
-my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
+use lib '/usr/lib/icinga2/custom_plugins';
+use lib "/usr/local/nagios/libexec";
+use utils qw(%ERRORS $TIMEOUT);
+#my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
 
 # SNMP Datas for processes (MIB II)
 my $process_table  = '1.3.6.1.2.1.25.4.2.1';
@@ -60,8 +63,9 @@ my $o_help        = undef;        # wan't some help ?
 my $o_verb        = undef;        # verbose mode
 my $o_version     = undef;        # print version
 my $o_noreg       = undef;        # Do not use Regexp for name
-my $o_timeout     = 5;            # Default 5s Timeout
-my $o_octetlength = undef;        # SNMP max message size
+my $o_timeout   = 10;             # Default 10s Timeout
+my $o_retries   = 10;             # 10 times retry
+my $o_octetlength = undef;        # SNMP max messagea size
 
 # SNMP V3 specific
 my $o_login  = undef;             # snmp v3 login
@@ -128,7 +132,7 @@ sub help {
 -r, --noregexp
    Do not use regexp to match NAME in service description.
 -t, --timeout=INTEGER
-   timeout for SNMP in seconds (Default: 5)
+   timeout for SNMP in seconds (Default: 10)
 -o, --octetlength=INTEGER
    SNMP max message size (484-65535)
 -V, --version
@@ -240,17 +244,6 @@ sub check_options {
 
 check_options();
 
-# Check timeout if snmp screws up
-if (defined($o_timeout)) {
-    verb("Alarm in $o_timeout seconds");
-    alarm($o_timeout);
-}
-
-$SIG{'ALRM'} = sub {
-    print "No answer from host $o_host:$o_port\n";
-    exit $ERRORS{"UNKNOWN"};
-};
-
 # Connect to host
 my ($session, $error);
 if (defined($o_login) && defined($o_passwd)) {
@@ -265,7 +258,8 @@ if (defined($o_login) && defined($o_passwd)) {
         -authpassword => $o_passwd,
         -authprotocol => 'md5',
         -privpassword => $o_passwd,
-        -timeout      => $o_timeout
+        -timeout      => $o_timeout,
+        -retries      => $o_retries
     );
 } else {
     if (defined($o_version2)) {
@@ -276,7 +270,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -version   => 2,
             -community => $o_community,
             -port      => $o_port,
-            -timeout   => $o_timeout
+            -timeout   => $o_timeout,
+            -retries   => $o_retries
         );
     } else {
 
@@ -285,7 +280,8 @@ if (defined($o_login) && defined($o_passwd)) {
             -hostname  => $o_host,
             -community => $o_community,
             -port      => $o_port,
-            -timeout   => $o_timeout
+            -timeout   => $o_timeout,
+            -retries   => $o_retries
         );
     }
 }
