@@ -17,7 +17,10 @@ use Net::SNMP;
 use Getopt::Long;
 
 # Icinga specific
-my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
+use lib '/usr/lib/icinga2/custom_plugins';
+use lib "/usr/local/nagios/libexec";
+use utils qw(%ERRORS $TIMEOUT);
+#my %ERRORS = ('OK' => 0, 'WARNING' => 1, 'CRITICAL' => 2, 'UNKNOWN' => 3, 'DEPENDENT' => 4);
 
 # SNMP Datas
 
@@ -127,7 +130,8 @@ my $o_warn     = undef;          # warning level
 my @o_warnL    = undef;          # warning levels for Linux Load or Cisco CPU
 my $o_crit     = undef;          # critical level
 my @o_critL    = undef;          # critical level for Linux Load or Cisco CPU
-my $o_timeout  = undef;          # Timeout (Default 5)
+my $o_timeout  = 10;             # Timeout (Default 10)
+my $o_retries  = 10;             # 10 times retry 
 my $o_perf     = undef;          # Output performance data
 my $o_version2 = undef;          # use snmp v2c
 
@@ -217,7 +221,7 @@ sub help {
 -f, --perfparse, --perfdata
    Performance data output
 -t, --timeout=INTEGER
-   timeout for SNMP in seconds (Default: 5)
+   timeout for SNMP in seconds (Default: 10)
 -V, --version
    prints version number
 EOT
@@ -279,7 +283,7 @@ sub check_options {
         print_usage();
         exit $ERRORS{"UNKNOWN"};
     }
-    if (!defined($o_timeout)) { $o_timeout = 5; }
+    #if (!defined($o_timeout)) { $o_timeout = 5; }
     if (defined($o_help))    { help();      exit $ERRORS{"UNKNOWN"} }
     if (defined($o_version)) { p_version(); exit $ERRORS{"UNKNOWN"} }
     if (!defined($o_host))    # check host and filter
@@ -385,17 +389,6 @@ sub is_legacy_snmp_version {
 
 check_options();
 
-# Check timeout if snmp screws up
-if (defined($o_timeout)) {
-    verb("Alarm in $o_timeout seconds");
-    alarm($o_timeout);
-}
-
-$SIG{'ALRM'} = sub {
-    print "No answer from host $o_host:$o_port\n";
-    exit $ERRORS{"UNKNOWN"};
-};
-
 # Connect to host
 my ($session, $error);
 if (defined($o_login) && defined($o_passwd)) {
@@ -412,6 +405,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -authpassword => $o_passwd,
             -authprotocol => $o_authproto,
             -timeout      => $o_timeout,
+            -retries      => $o_retries,
             -domain       => $o_domain
         );
     } else {
@@ -426,6 +420,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -privpassword => $o_privpass,
             -privprotocol => $o_privproto,
             -timeout      => $o_timeout,
+            -retries      => $o_retries,
             -domain       => $o_domain
         );
     }
@@ -440,6 +435,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -community => $o_community,
             -port      => $o_port,
             -timeout   => $o_timeout,
+            -retries   => $o_retries,
             -domain    => $o_domain
         );
     } else {
@@ -451,6 +447,7 @@ if (defined($o_login) && defined($o_passwd)) {
             -community => $o_community,
             -port      => $o_port,
             -timeout   => $o_timeout,
+            -retries   => $o_retries,
             -domain    => $o_domain
         );
     }
