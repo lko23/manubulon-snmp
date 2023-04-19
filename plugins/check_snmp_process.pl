@@ -183,7 +183,7 @@ sub help {
     'tcp/ipv4'  : TCP over IPv4
     'tcp/ipv6'  : TCP over IPv6
 -n, --name=NAME
-   Name of the process (regexp)
+   Name of the process (regexp), for multiple names use pipe
    No trailing slash !
 -r, --noregexp
    Do not use regexp to match NAME in description OID
@@ -842,8 +842,12 @@ if (defined($o_cpu)) {
     }
 }
 
+# nice output if used with regex pipe
+my $o_descr_nice = $o_descr;
+$o_descr_nice =~ s/\|/ or /g;
+
 if ($num_int == 0) {
-    print "No processes ", (defined($o_noreg) ? "named " : "matching "), $o_descr, " found : ";
+    print "No processes ", (defined($o_noreg) ? "named " : "matching "), $o_descr_nice, " found : ";
     if ($o_critL[0] >= 0) {
         print "CRITICAL";
         $final_status = 2;
@@ -853,7 +857,7 @@ if ($num_int == 0) {
     }
 }
 else {
-    print $num_int_ok, " process", ($num_int_ok == 1 ? " " : "es "), (defined($o_noreg) ? "named " : "matching "), $o_descr, " ";
+    print $num_int_ok, " process", ($num_int_ok == 1 ? " " : "es "), (defined($o_noreg) ? "named " : "matching "), $o_descr_nice, " ";
 
     #### Check for min and max number of process
     if ($num_int_ok <= $o_critL[0]) {
